@@ -1,6 +1,6 @@
-# Ovra Skills
+# Ovra Agent Payments
 
-Payment skills for AI agents. Zero-knowledge checkout — the agent never sees card data.
+EU-native payment skill for AI agents. Zero-knowledge checkout — the agent never sees card data.
 
 ## Install
 
@@ -8,7 +8,7 @@ Payment skills for AI agents. Zero-knowledge checkout — the agent never sees c
 npx skills add AlecFritsch/ovra-skills
 ```
 
-Or manually copy `ovra-agentic-payments/SKILL.md` into your skills directory.
+Or manually copy `SKILL.md` into your skills directory.
 
 ## What this enables
 
@@ -20,7 +20,7 @@ Say "buy X" to your AI agent and it handles the entire checkout securely:
 4. Attaches receipt for audit trail
 5. Verifies transaction matches intent
 
-Works with Claude Code, Cursor, OpenClaw, Codex, and any MCP-compatible agent.
+Works with Claude Code, Cursor, Windsurf, Codex, and any MCP-compatible agent.
 
 ## Setup
 
@@ -39,15 +39,11 @@ Connect to Ovra's MCP server:
 
 Get your API key at [getovra.com/dashboard/keys](https://getovra.com/dashboard/keys).
 
-## Available Skills
-
-| Skill | Description |
-|-------|-------------|
-| [ovra-agentic-payments](./ovra-agentic-payments/SKILL.md) | Complete payment flow: intents, checkout, evidence, disputes |
-
 ## Why Ovra?
 
 Every other agent payment solution gives the agent your card number. Ovra doesn't. The agent gets `{ success: true }` and nothing else. Card data stays on Ovra's server, typed directly into the checkout form via Chrome DevTools Protocol.
+
+EU-native. GDPR by design. Powered by Visa Network Tokens. Built in Berlin.
 
 ## Links
 
