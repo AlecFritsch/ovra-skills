@@ -4,21 +4,21 @@ description: >
   Use this skill when the agent needs to buy something online, pay for a
   service, complete a checkout, manage spending budgets, or track purchases.
   Enables secure payments where the agent never sees card data. Works with
-  any website that accepts Visa. Use even if the user just says "buy",
-  "order", "purchase", "subscribe", or "pay for".
+  any website that accepts Visa. EU-native, GDPR by design. Use even if
+  the user just says "buy", "order", "purchase", "subscribe", or "pay for".
 license: MIT
 compatibility: Requires Ovra MCP server connection and API key.
 metadata:
-  version: "1.0.0"
+  version: "2.0.0"
   author: "Ovra"
   website: "https://getovra.com"
   docs: "https://docs.getovra.com"
-  mcp: "https://mcp.getovra.com/mcp"
+  mcp: "https://api.getovra.com/api/mcp"
 ---
 
 # Ovra Agentic Payments
 
-Secure payments for AI agents. The agent never touches card data.
+Secure, EU-native payments for AI agents. The agent never touches card data.
 
 ## Setup
 
@@ -26,140 +26,167 @@ Secure payments for AI agents. The agent never touches card data.
 {
   "mcpServers": {
     "ovra": {
-      "url": "https://mcp.getovra.com/mcp",
+      "url": "https://api.getovra.com/api/mcp",
       "headers": { "Authorization": "Bearer sk_test_YOUR_KEY" }
     }
   }
 }
 ```
 
-Keys at https://getovra.com/dashboard/keys. Sandbox keys: `sk_test_*`.
+Keys at https://getovra.com/dashboard/keys. Sandbox keys start with `sk_test_`.
 
-## Payment Flow
+## Quick Start — One-Step Payment
 
-Every purchase follows this sequence. Do not skip steps.
-
-```
-1. ovra_policy_simulate  → will it pass?
-2. ovra_intent_create    → declare what to buy
-3. ovra_checkout_token   → get single-use fill token
-4. ovra_checkout_detect  → find payment form on page
-5. ovra_checkout_fill    → fill card fields (agent sees nothing)
-6. ovra_evidence         → attach receipt
-7. ovra_intent_action    → verify actual vs expected
-```
-
-### Step 1: Simulate
-
-Before anything, check if the payment would pass policy:
+For most payments, use `ovra_pay` which handles the entire flow:
 
 ```
-ovra_policy_simulate({ agentId, amount: 49.99, merchant: "amazon.de" })
+ovra_pay({
+  action: "checkout",
+  agentId: "ag_xxx",
+  purpose: "Notion Team Plan",
+  amount: 79,
+  merchant: "Notion"
+})
 ```
 
-If it fails, stop and tell the user why. Do not proceed.
+Returns tokenized card data (DPAN + cryptogram). The real card number is never exposed.
+
+### Handle HTTP 402 Paywalls
+
+When a web API returns HTTP 402 Payment Required:
+
+```
+ovra_pay({
+  action: "handle_402",
+  agentId: "ag_xxx",
+  url: "https://api.example.com/data",
+  merchant: "Example API",
+  amount: 0.05
+})
+```
+
+## Available Tools (12)
+
+### Payment Flow
+| Tool | Actions | Description |
+|------|---------|-------------|
+| `ovra_pay` | checkout, status, handle_402, discover | **Primary tool.** Complete payment in one step. |
+| `ovra_intent` | list, declare, get, cancel, verify | Fine-grained intent management. |
+| `ovra_credential` | obtain, grant, issue, redeem, revoke, status | Advanced credential control. |
+
+### Cards & Policy
+| Tool | Actions | Description |
+|------|---------|-------------|
+| `ovra_card` | issue, list, freeze, unfreeze, close, rotate | Virtual Visa card management. |
+| `ovra_policy` | get | View spending policy (read-only). |
+
+### Records & Compliance
+| Tool | Actions | Description |
+|------|---------|-------------|
+| `ovra_transaction` | list, get, memo | Payment history and notes. |
+| `ovra_receipt` | upload, get | Receipt management (PDF, base64). |
+| `ovra_dispute` | list, get, file | File disputes on transactions. |
+
+### Admin
+| Tool | Actions | Description |
+|------|---------|-------------|
+| `ovra_agent` | list, provision, get, update, issue_card, token_list, token_create, token_revoke | Provision and manage agents. |
+| `ovra_customer` | get, update, gdpr_export, gdpr_consent, gdpr_delete | Account and GDPR compliance. |
+| `ovra_merchant` | resolve, explain, list_mcc, suggest | Merchant intelligence. |
+| `ovra_config` | (varies) | System configuration. |
+
+## Step-by-Step Flow (when you need fine control)
+
+For cases where `ovra_pay` is too opaque:
+
+```
+1. ovra_policy     → get: check spending rules
+2. ovra_intent     → declare: state what to buy
+3. ovra_credential → obtain: get DPAN + cryptogram
+4. ovra_receipt    → upload: attach proof
+5. ovra_intent     → verify: confirm actual vs expected
+```
+
+### Step 1: Check policy
+
+```
+ovra_policy({ action: "get", agentId: "ag_xxx" })
+```
 
 ### Step 2: Declare intent
 
 ```
-ovra_intent_create({
-  agentId, purpose: "Buy wireless keyboard",
-  expectedAmount: 49.99, expectedMerchant: "amazon.de"
+ovra_intent({
+  action: "declare",
+  agentId: "ag_xxx",
+  purpose: "Buy wireless keyboard",
+  expectedAmount: 49.99,
+  expectedMerchant: "amazon.de"
 })
 ```
 
-If status is `pending_approval`: **stop and wait**. Tell the user their approval is needed in the dashboard. Do not retry or work around this.
+If status is `pending_approval`: **stop and wait**. Tell the user approval is needed in the dashboard.
 
-### Step 3–4: Get token and detect form
-
-```
-ovra_checkout_token({ intentId })
-ovra_checkout_detect({ cdpBaseUrl: "http://localhost:9222" })
-```
-
-The token expires in 60 seconds and works only once, only on the matching merchant domain.
-
-### Step 5: Fill checkout
+### Step 3: Get credentials
 
 ```
-ovra_checkout_fill({ token, cdpBaseUrl: "http://localhost:9222" })
+ovra_credential({ action: "obtain", intentId: "in_xxx" })
 ```
 
-Ovra connects to the browser via CDP and types card data directly into the form. The agent never sees PAN or CVV.
+Returns DPAN + cryptogram. The agent never sees the real card number.
 
-### Step 6: Attach receipt
-
-Scrape the confirmation page and attach it:
+### Step 4: Attach receipt
 
 ```
-ovra_evidence({
-  action: "attach", intentId,
-  type: "receipt",
-  description: "Order #12345",
-  amountEuros: 49.99,
-  merchant: "amazon.de"
+ovra_receipt({
+  action: "upload",
+  intentId: "in_xxx",
+  fileBase64: "JVBER...",
+  fileName: "invoice.pdf"
 })
 ```
 
-### Step 7: Verify
+### Step 5: Verify
 
 ```
-ovra_intent_action({
-  intentId, action: "verify",
+ovra_intent({
+  action: "verify",
+  intentId: "in_xxx",
   actualAmountEuros: 49.99,
   actualMerchant: "amazon.de"
 })
 ```
 
-## When the merchant has a payment API
-
-Some merchants expose an API instead of a browser form. Use the proxy — same flow but replace steps 4–5:
-
-```
-ovra_checkout_proxy({
-  token,
-  request: {
-    url: "https://api.shop.de/pay",
-    method: "POST",
-    body: { card: "{{PAN}}", exp: "{{EXP_SHORT}}", cvv: "{{CVC}}" }
-  }
-})
-```
-
-Ovra replaces placeholders server-side and scrubs card data from the response. Available: `{{PAN}}`, `{{CVC}}`, `{{EXP_MONTH}}`, `{{EXP_YEAR}}`, `{{EXP_SHORT}}`, `{{HOLDER}}`, `{{LAST4}}`.
-
 ## Gotchas
 
-- `ovra_card_get_sensitive` exists but **never call it**. It exposes raw PAN/CVV. Always use `ovra_checkout_fill` or `ovra_checkout_proxy`.
-- `ovra_checkout_execute` is for simple API-level checkouts without a browser. Prefer `ovra_checkout_fill` for real websites.
+- **Use `ovra_pay` for most payments.** Step-by-step is for edge cases.
 - Intents expire (default 24h). If expired, create a new one.
-- The fill token expires in 60 seconds. Get it right before you need it, not earlier.
-- `pending_approval` means a human must approve. The agent cannot approve its own intents when above the auto-approve threshold.
-- If `ovra_checkout_detect` finds no payment form, the page might still be loading. Wait and retry once.
-- Card data must never appear in your output, logs, or context. If you somehow see a 16-digit number starting with 4, do not repeat it.
+- `pending_approval` means a human must approve. The agent cannot bypass this.
+- Card data must never appear in output, logs, or context.
+- `ovra_card` close is irreversible.
+- `ovra_customer` gdpr_delete permanently erases ALL data per GDPR Art. 17.
 
 ## Agent vs Human boundaries
 
-**Agent does autonomously:** simulate, create intents, get tokens, detect forms, fill checkout, attach evidence, verify, list transactions, file disputes, check balances.
+**Agent does autonomously:** checkout via ovra_pay, declare intents, obtain credentials, upload receipts, verify transactions, list transactions, file disputes, check balances, handle 402 paywalls.
 
-**Agent asks human first:** create/delete agents, fund wallets, change policies, freeze/unfreeze cards, manage API keys, approve high-value intents.
+**Agent asks human first:** provision/delete agents, fund wallets, change policies, freeze/unfreeze cards, manage API keys, approve high-value intents, GDPR deletion.
 
 ## Checking balance and status
 
 ```
-ovra_agent_get({ agentId })           → balance, status
-ovra_policy_get({ agentId })          → current spending rules
-ovra_transactions({ action: "list" }) → recent purchases
-ovra_intents_list({ status: "pending_approval" }) → waiting for human
+ovra_agent({ action: "get", agentId: "ag_xxx" })
+ovra_policy({ action: "get", agentId: "ag_xxx" })
+ovra_transaction({ action: "list", agentId: "ag_xxx", limit: 5 })
+ovra_intent({ action: "list", status: "pending_approval" })
 ```
 
 ## Filing a dispute
 
-If a purchase went wrong:
-
 ```
-ovra_dispute_create({
-  transactionId,
+ovra_dispute({
+  action: "file",
+  transactionId: "tx_xxx",
   reason: "not_received",
   description: "Package not delivered after 14 days"
 })
@@ -169,9 +196,7 @@ Reasons: `unauthorized`, `fraud`, `not_received`, `duplicate`, `incorrect_amount
 
 ## Merchant intelligence
 
-Use before setting up policies to find the right merchant names and MCC codes:
-
 ```
-ovra_merchant_intel({ action: "suggest", query: "cloud hosting" })
-ovra_merchant_intel({ action: "resolve", query: "hetzner.com" })
+ovra_merchant({ action: "suggest", query: "cloud hosting" })
+ovra_merchant({ action: "resolve", query: "hetzner.com" })
 ```
