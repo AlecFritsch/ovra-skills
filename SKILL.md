@@ -6,18 +6,21 @@ description: >
   Enables secure payments where the agent never sees card data. Works with
   any website that accepts Visa. EU-native, GDPR by design. Use even if
   the user just says "buy", "order", "purchase", "subscribe", or "pay for".
+homepage: https://getovra.com
 license: MIT
 compatibility: >
   Requires OVRA_API_KEY (get at https://getovra.com/dashboard/keys) and
   MCP server connection to https://api.getovra.com/api/mcp. Network access
   to api.getovra.com required. Sandbox keys (sk_test_*) available for testing.
+requires:
+  env:
+    - OVRA_API_KEY
 metadata:
-  version: "2.2.0"
+  version: "2.3.0"
   author: "Ovra Labs"
   website: "https://getovra.com"
   docs: "https://docs.getovra.com"
   mcp-endpoint: "https://api.getovra.com/api/mcp"
-  required-credential: "OVRA_API_KEY"
   data-residency: "EU (Germany)"
   compliance: "GDPR, PSD2"
 ---
