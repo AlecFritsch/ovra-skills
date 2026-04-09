@@ -7,33 +7,65 @@ description: >
   any website that accepts Visa. EU-native, GDPR by design. Use even if
   the user just says "buy", "order", "purchase", "subscribe", or "pay for".
 license: MIT
-compatibility: Requires Ovra MCP server connection and API key.
+compatibility: Requires Ovra MCP server connection and API key (OVRA_API_KEY).
+env:
+  OVRA_API_KEY:
+    description: "Ovra API key for authentication. Get yours at https://getovra.com/dashboard/keys"
+    required: true
+    format: "sk_test_* (sandbox) or sk_live_* (production)"
+endpoints:
+  mcp: "https://api.getovra.com/api/mcp"
+  api: "https://api.getovra.com"
+  dashboard: "https://getovra.com/dashboard"
+capabilities:
+  - "autonomous-payments"
+  - "virtual-visa-cards"
+  - "policy-enforcement"
+  - "receipt-upload"
+  - "dispute-filing"
+  - "http-402-handling"
 metadata:
-  version: "2.0.0"
-  author: "Ovra"
+  version: "2.1.0"
+  author: "Ovra Labs"
   website: "https://getovra.com"
   docs: "https://docs.getovra.com"
   mcp: "https://api.getovra.com/api/mcp"
+  security: "Zero-knowledge — agent never sees real card data (PAN/CVV). Uses Visa Network Tokens (DPAN)."
+  data_residency: "EU (Germany)"
+  compliance: "GDPR, PSD2"
 ---
 
 # Ovra Agentic Payments
 
 Secure, EU-native payments for AI agents. The agent never touches card data.
 
+## Prerequisites
+
+1. **Ovra API Key** — sign up at [getovra.com](https://getovra.com) and get a key from [Dashboard > Keys](https://getovra.com/dashboard/keys)
+2. **MCP Server Connection** — this skill communicates with Ovra via MCP at `https://api.getovra.com/api/mcp`
+
+Sandbox keys (`sk_test_*`) are free and have no spending limits. Production keys (`sk_live_*`) require account verification.
+
 ## Setup
+
+Add the Ovra MCP server to your agent configuration:
 
 ```json
 {
   "mcpServers": {
     "ovra": {
       "url": "https://api.getovra.com/api/mcp",
-      "headers": { "Authorization": "Bearer sk_test_YOUR_KEY" }
+      "headers": { "Authorization": "Bearer YOUR_OVRA_API_KEY" }
     }
   }
 }
 ```
 
-Keys at https://getovra.com/dashboard/keys. Sandbox keys start with `sk_test_`.
+Replace `YOUR_OVRA_API_KEY` with your key from [getovra.com/dashboard/keys](https://getovra.com/dashboard/keys).
+
+### What this skill sends externally
+
+All tool calls (`ovra_pay`, `ovra_card`, etc.) are sent to `https://api.getovra.com/api/mcp` via the MCP protocol. Receipt uploads (`ovra_receipt`) transmit base64-encoded files to the same endpoint. No data is sent to any other external service. All data is stored in the EU (Germany) per GDPR.
 
 ## Quick Start — One-Step Payment
 
